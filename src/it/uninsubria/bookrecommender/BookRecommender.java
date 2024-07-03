@@ -11,10 +11,14 @@ import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.function.Predicate;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.regex.Pattern;
@@ -77,6 +81,7 @@ class Libro {
 class User {
 	private String nome, cognome, codiceFiscale, email, userid, password;
 	private List<String> data;
+	private List<Library> libs;
 
 	public User(String nome, String cognome, String codiceFiscale, String email, String userid, String password) {
 		this.nome          = nome;
@@ -112,10 +117,56 @@ class User {
 		return this.password;
 	}
 
+	public List<Library> getLibs() {
+		return this.libs;
+	}
+
 	@Override
 	public String toString() {
 		return String.format("nome:\t\t%s\ncognome:\t%s\ncodiceFiscale:\t%s\nemail:\t\t%s\nuserid:\t\t%s\npassword:\t%s\n", this.nome, this.cognome, this.codiceFiscale, this.email, this.userid, this.password);
 		
+	}
+
+	public void setLibrary(List<Library> l) {
+		this.libs = l;
+	}
+}
+
+class Library {
+	private String nome;
+	private List<Integer> books;
+
+	public Library(String data, boolean fromCsv) {
+		this.nome = data;
+		this.books = new ArrayList<Integer>();
+	}
+
+	public Library(String csvLine) {
+		String[] infos = csvLine.split(",");
+		this.nome = infos[1];
+		String[] bs = Arrays.copyOfRange(infos, 2, infos.length);
+		this.books = Arrays.stream(bs).map(x -> Integer.parseInt(x)).collect(Collectors.toList()); 
+	}
+
+	boolean addBook(int bookId) {
+		int found = Utils.cerca(this.books, id -> id == bookId).size();
+		return switch (found) {
+			case 0  -> {this.books.add(bookId); yield true;}
+			default -> false; 
+		};
+	}
+
+	public List<Integer> getBooks() {
+		return this.books;
+	}
+	
+	public String getName() {
+		return this.nome;
+	}
+
+	@Override
+	public String toString() {
+		return String.format("name:\t%s\nids:\t%s\n", this.nome, this.books.toString());
 	}
 }
 
@@ -177,7 +228,7 @@ class Utils {
 		String line = null;
 		try (BufferedReader reader = new BufferedReader(new FileReader(filepath))) {
 			// skip first line cause it has headers
-			line = reader.readLine();
+			reader.readLine();
 			while ((line = reader.readLine()) != null) {
 				T obj = type.getDeclaredConstructor(String.class).newInstance(line); //new Libro(line);
 				result.add(obj);
@@ -188,6 +239,18 @@ class Utils {
 			System.err.println("error creating object");
 		}
 		return result;
+	}
+
+	static <T> ArrayList<String> csvReaderFiltered(String filepath, Predicate<String> f) {
+		ArrayList<String> fLines = new ArrayList<>();	
+		try (Stream<String> lines = Files.lines(Paths.get(filepath))) {
+			fLines = lines.filter(f)
+			     .collect(Collectors.toCollection(ArrayList::new));
+		} catch (IOException e) {
+			System.err.println("error reading file");
+		}
+		return fLines;
+
 	}
 
 	
@@ -284,12 +347,13 @@ class BookRecommender {
 	static final String libriDati       = "data/Libri.dati";
 	static final String userDati        = "data/UtentiRegistrati.dati"; 
 	static final String valutazioniDati = "data/ValutazioniLibri.dati"; 
+	static final String librerieDati    = "data/Librerie.dati"; 
 
 	static final Pattern namePattern    = Pattern.compile("^[a-zA-Z]+$");
 	static final Pattern emailPattern   = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
 	static final Pattern noCommaPattern = Pattern.compile("^[^,]*$");
 
-	static String menu                  = "\n%s\nwhat u wanna do?\n1. look for a book\n2. view book review\n3. register\n4. login\n5. quit\n6. create a new library\n7. insert book review\n8.insert recommandation for book\nur choice: ";
+	static String menu                  = "\n%s\nwhat u wanna do?\n1. look for a book\n2. view book review\n3. register\n4. login\n5. quit\n6. create a new library\n7. insert book review\n8. insert recommandation for book\n9. view your libraries\nur choice: ";
 
 	static final String noLoggedInMenu  = "NOT LOGGED IN";
 	static String prompt;
@@ -298,8 +362,16 @@ class BookRecommender {
 	static String handleInput(String msg, Scanner s) {
 		System.out.print(msg);
 		return s.nextLine();
-		
 	}
+	
+	// static String handleInputCondition(String msg, Scanner s, boolean condition) {
+		// String in;
+		// do {
+			// System.out.print(msg);
+			// in = s.nextLine();
+		// } while (condition);
+		// return in;
+	// }
 
 	/**
 	 * entry point to the application.
@@ -308,12 +380,12 @@ class BookRecommender {
 	 */
 	public static void main(String[] args) {
 		// List<Libro> books = Utils.getBooksFromCsv(libriDati);
-		List<Libro> books = Utils.csvReader(libriDati, Libro.class);
+		List<Libro>  books = Utils.csvReader(libriDati,    Libro.class);
+		List<User>   users = Utils.csvReader(userDati,     User.class);
+		List<String> libs  = Utils.csvReaderFiltered(librerieDati, xl -> xl.split(",")[0].equals("pollo"));
+		List<Library> lls  = libs.stream().map(Library::new).collect(Collectors.toList());
 
-		// List<Libro> qbooks = Utils.cerca(books, libro -> libro.getTitle().toLowerCase().contains("quick"));
-		// qbooks.forEach(System.out::println);
-		List<User> users = Utils.csvReader(userDati, User.class);
-		// users.forEach(System.out::println);
+		lls.forEach(System.out::println);
 		// System.exit(10);
 		// List<Libro> titoli = books.stream()
 			// .map(Libro::getTitle)
@@ -454,10 +526,17 @@ class BookRecommender {
 					do { password = handleInput("enter your password:\t", scanner);}
 					while ( !Utils.assertTrue(activeUser.getPassword().equals(password), "wrong password"));
 
-					System.out.println(String.format("login as %s succesfull!!!", activeUser.getUserid()));
+					System.out.println(String.format("\nlogin as %s succesfull!!!", activeUser.getUserid()));
 					isUserLogged = true;
 
-					prompt = String.format("LOGGED IN AS %s", activeUser.getUserid()); 
+					prompt = String.format("\nLOGGED IN AS %s", activeUser.getUserid()); 
+
+					List<Library> llibs  = Utils.csvReaderFiltered(librerieDati, xl -> xl.split(",")[0].equals(activeUser.getUserid()))
+						.stream()
+						.map(Library::new)
+						.collect(Collectors.toList());
+
+					activeUser.setLibrary(llibs);
 					
 				}
 
@@ -468,9 +547,49 @@ class BookRecommender {
 				}
 				
 				// create new library
+				// ensure that each user cannot have two libraries with the same name
 				case "6" -> {
 					System.out.println();
 					Utils.assertTrue(isUserLogged, "u need to login in order to create a new library");
+					String name, id; int idTmp;
+
+					do {name = handleInput("enter library name:\t\t", scanner);}
+					while (!Utils.assertTrue(noCommaPattern.matcher(name).matches(), "dont use commas"));
+
+					final String fname = name;
+
+					if (!Utils.assertTrue(activeUser.getLibs().stream().filter(ff -> ff.equals(fname)).collect(Collectors.toList()).size() != 0, "u already have a library with this name")) {
+						break;
+					}
+
+					Library l = new Library(name, false);	
+
+					while (true) {
+						id = handleInput("enter book id or type end:\t", scanner);
+						if (id.equals("end")) {
+							break;
+						}
+						try {
+							idTmp = Integer.parseInt(id);
+							
+						} catch (java.lang.NumberFormatException e) {
+							System.err.println("invalid book id");
+							continue;
+						}
+
+						if (idTmp > books.size() || idTmp < 0) {
+							System.err.println("invalid book id");
+							continue;
+						}
+
+						l.addBook(idTmp);
+					}
+
+					List<String> lStr = l.getBooks().stream()
+						                        .map(idi -> String.valueOf(idi))
+									.collect(Collectors.toList());
+
+					Utils.csvWriter(librerieDati, lStr, String.format(",%s,%s", activeUser.getUserid(), l.getName()));
 				}
 
 				// insert book review
@@ -484,6 +603,20 @@ class BookRecommender {
 					System.out.println();
 					Utils.assertTrue(isUserLogged, "u need to login in order to insert recommandation for book");
 				}
+
+				// view ur libraries
+				case "9" -> {
+					System.out.println();
+					Utils.assertTrue(isUserLogged, "u need to login in order to view ur libraries");
+					activeUser.getLibs().forEach(System.out::println);
+				}
+				
+				default -> {
+					System.err.println("\nmode not available");
+				}
+
+
+
 
 
 
