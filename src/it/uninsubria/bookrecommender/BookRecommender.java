@@ -12,10 +12,19 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.function.Predicate;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+
+// λ lambda
+// @FunctionalInterface
+// interface λ<T, R> {
+	// R apply(T t);
+// }
 
 class Libro {
 	private String title, authors, publisher, category;
@@ -99,6 +108,10 @@ class User {
 		return this.userid;
 	}
 
+	public String getPassword() {
+		return this.password;
+	}
+
 	@Override
 	public String toString() {
 		return String.format("nome:\t\t%s\ncognome:\t%s\ncodiceFiscale:\t%s\nemail:\t\t%s\nuserid:\t\t%s\npassword:\t%s\n", this.nome, this.cognome, this.codiceFiscale, this.email, this.userid, this.password);
@@ -136,6 +149,13 @@ class Utils {
 	static final String numbers = "0123456789";
 	static Random random = new Random();
 
+	static boolean assertTrue(boolean predicate, String errMsg) {
+		if (predicate) {
+			return true;
+		}
+		System.err.println(errMsg); 
+		return false;
+	}
 	// static ArrayList<Libro> getBooksFromCsv(String filepath) {
 		// ArrayList<Libro> result = new ArrayList<Libro>();
 		// String line = null;
@@ -176,6 +196,13 @@ class Utils {
 			    .filter(x -> mode.apply(x).toLowerCase().contains(query.toLowerCase()))
 			    .collect(Collectors.toList());
 	}
+	
+	static <T> List<T> cerca(List<T> items, Predicate<T> f) {
+		return items.stream()
+			    .filter(f)
+			    .collect(Collectors.toList());
+
+	}
 
 	static void csvWriter(String filepath, List<String> data, String lineToWrite) {
 		switch (data.size()) {
@@ -205,17 +232,16 @@ class Utils {
 
 	}
 
-	static void registrazione(String file, User utente, List<User> users) {
-		List<User> qusers = users.stream()
-		     .filter(x -> x.getUserid().equals(utente.userid))
-		     .collect(Collectors.toList());
+	static boolean registrazione(String file, User utente, List<User> users) {
+		List<User> qusers = cerca(users, user -> user.getUserid().equals(utente.getUserid()));
 
-		if (qusers.length() != 0) {
-			System.err.println("userid not available");
-			return;
+		if (qusers.size() != 0) {
+			System.err.println(String.format("\nuserid %s not available", utente.getUserid()));
+			return false;
 		}
 
 		csvWriter(file, utente.getData(), "");
+		return true;
 	}
 
 	static void generateReview(Libro book) {
@@ -252,12 +278,27 @@ class Utils {
 }
 
 class BookRecommender {
+	static boolean isUserLogged = false;
+	static User activeUser;
+
 	static final String libriDati       = "data/Libri.dati";
 	static final String userDati        = "data/UtentiRegistrati.dati"; 
 	static final String valutazioniDati = "data/ValutazioniLibri.dati"; 
 
-	static void printMenu() {
-		System.out.print("\nwhat u wanna do?\n1. look for a book\n2. view book review\n3. register\n4. login\n5. quit\nur choice: ");	
+	static final Pattern namePattern    = Pattern.compile("^[a-zA-Z]+$");
+	static final Pattern emailPattern   = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+	static final Pattern noCommaPattern = Pattern.compile("^[^,]*$");
+
+	static String menu                  = "\n%s\nwhat u wanna do?\n1. look for a book\n2. view book review\n3. register\n4. login\n5. quit\n6. create a new library\n7. insert book review\n8.insert recommandation for book\nur choice: ";
+
+	static final String noLoggedInMenu  = "NOT LOGGED IN";
+	static String prompt;
+
+
+	static String handleInput(String msg, Scanner s) {
+		System.out.print(msg);
+		return s.nextLine();
+		
 	}
 
 	/**
@@ -268,7 +309,9 @@ class BookRecommender {
 	public static void main(String[] args) {
 		// List<Libro> books = Utils.getBooksFromCsv(libriDati);
 		List<Libro> books = Utils.csvReader(libriDati, Libro.class);
-		// books.forEach(System.out::println);
+
+		// List<Libro> qbooks = Utils.cerca(books, libro -> libro.getTitle().toLowerCase().contains("quick"));
+		// qbooks.forEach(System.out::println);
 		List<User> users = Utils.csvReader(userDati, User.class);
 		// users.forEach(System.out::println);
 		// System.exit(10);
@@ -293,44 +336,40 @@ class BookRecommender {
 		
 		// System.out.println(Utils.generateRandomString(10, ""));
 		
-		Utils.registrazione(userDati, Utils.generateUser());
+		// Utils.registrazione(userDati, Utils.generateUser(), users);
 
 		Scanner scanner = new Scanner(System.in);
 
 		System.out.println("bookrecommender");
+		prompt = noLoggedInMenu;
 		
 		while (true) {
-			printMenu();
-			String input = scanner.nextLine();
+			String input = handleInput(String.format(menu, prompt), scanner);
 
 			switch (input) {
 				// look for a book
 				case "1" -> {
-					System.out.print("\nselect query mode\n1. Title -> t\n2. Author -> a\n3. Author and Year -> y\nur choice: ");
-					String qMode = scanner.nextLine();
+					String qMode = handleInput("\nselect query mode\n1. Title -> t\n2. Author -> a\n3. Author and Year -> y\nur choice: ", scanner);
 					String query, year;
 					List<Libro> result;
 
 					switch (qMode)  {
 						case "1", "t" -> {
-							System.out.print("\nenter the title: ");
-							query = scanner.nextLine();
-							result = Utils.cercaLibro(books, query, queryMode.TITOLO);		
+							query = handleInput("\nenter the title: ", scanner);
+							result = Utils.cerca(books, book -> book.getTitle().toLowerCase().contains(query.toLowerCase()));
+							// result = Utils.cercaLibro(books, query, queryMode.TITOLO);	
 							result.forEach(System.out::println);
 						}
 
 						case "2", "a" -> {
-							System.out.print("\nenter the author: ");
-							query = scanner.nextLine();
-							result = Utils.cercaLibro(books, query, queryMode.AUTORE);		
+							query = handleInput("\nenter the author: ", scanner);
+							result = Utils.cercaLibro(books, query, queryMode.AUTORE);	
 							result.forEach(System.out::println);
 
 						}
 						case "3", "y" -> {
-							System.out.print("\nenter the author: ");
-							query = scanner.nextLine();
-							System.out.print("\nenter the year: ");
-							year = scanner.nextLine();
+							query = handleInput("\nenter the author: ", scanner);
+							year  = handleInput("\nenter the year: ", scanner);
 							result = Utils.cercaLibro(Utils.cercaLibro(books, year, queryMode.ANNO), query, queryMode.AUTORE);		
 							result.forEach(System.out::println);
 
@@ -342,9 +381,8 @@ class BookRecommender {
 
 				// view book review
 				case "2" -> {
-					System.out.print("\nenter book id: ");
-					String ids = scanner.nextLine();
 					int id;
+					String ids = handleInput("\nenter book id: ", scanner);
 
 					try {
 						id = Integer.parseInt(ids);
@@ -369,32 +407,57 @@ class BookRecommender {
 
 				// register
 				case "3" -> {
-					System.out.print("\nenter your name: ");
-					String name          = scanner.nextLine();
-					System.out.print("\nenter your surname: ");
-					String surname       = scanner.nextLine();
-					System.out.print("\nenter your codice fiscale: ");
-					String codiceFiscale = scanner.nextLine();
-					System.out.print("\nenter your email: ");
-					String email         = scanner.nextLine();
-					System.out.print("\nenter your userid: ");
-					String userid        = scanner.nextLine();
-					System.out.print("\nenter your password: ");
-					String password      = scanner.nextLine();
+					String name, surname, codiceFiscale, email, userid, password;
+					System.out.println();
+
+					do { name = handleInput("enter your name:\t\t", scanner);} 
+					while (!Utils.assertTrue(namePattern.matcher(name).matches() && noCommaPattern.matcher(name).matches(), "dont use numbers or commas in your name"));
+					
+					do { surname = handleInput("enter your surname:\t\t", scanner);}
+					while (!Utils.assertTrue(namePattern.matcher(surname).matches() && noCommaPattern.matcher(surname).matches(), "dont use numbers or commas in your surname"));
+
+					do { codiceFiscale = handleInput("enter your codice fiscale:\t", scanner);}
+					while (!Utils.assertTrue(noCommaPattern.matcher(codiceFiscale).matches(), "dont use commas in your codiceFiscale"));
+
+					do { email = handleInput("enter your email:\t\t", scanner); }
+					while (!Utils.assertTrue(emailPattern.matcher(email).matches(), "email not valid"));
+					
+					do { userid = handleInput("enter your userid:\t\t", scanner);}
+					while (!Utils.assertTrue(noCommaPattern.matcher(userid).matches(), "dont use commas in your userid"));
+
+					do { password = handleInput("enter your password:\t\t", scanner);}
+					while (!Utils.assertTrue(noCommaPattern.matcher(password).matches(), "dont use commas in your password"));
 
 					User user = new User(name, surname, codiceFiscale, email, userid, password);
-					Utils.registrazione(userDati, user, users);
+					boolean succ = Utils.registrazione(userDati, user, users);
+					// System.out.println(succ);
+					if (!succ) {
+						break;
+					}
 					
-					System.out.println("registered succesfully!!!");
+					System.out.println(String.format("\n%s registered succesfully!!!", user.getUserid()));
+					users = Utils.csvReader(userDati, User.class);
 				}
 				
 				// login
 				// make sure userid is unique -> read users in a list like the books
 				case "4" -> {
-					System.out.print("\nenter your userid: ");
-					String userid        = scanner.nextLine();
-					System.out.print("\nenter your password: ");
-					String password      = scanner.nextLine();
+					List<User> found; String password;
+					System.out.println();
+					
+					do {
+						String userid = handleInput("enter your userid:\t", scanner);
+						found  = Utils.cerca(users, user -> user.getUserid().equals(userid));
+					} while (!Utils.assertTrue(found.size() == 1, "userid not found"));
+					activeUser = found.get(0);
+					
+					do { password = handleInput("enter your password:\t", scanner);}
+					while ( !Utils.assertTrue(activeUser.getPassword().equals(password), "wrong password"));
+
+					System.out.println(String.format("login as %s succesfull!!!", activeUser.getUserid()));
+					isUserLogged = true;
+
+					prompt = String.format("LOGGED IN AS %s", activeUser.getUserid()); 
 					
 				}
 
@@ -403,6 +466,27 @@ class BookRecommender {
 					scanner.close(); 
 					return;
 				}
+				
+				// create new library
+				case "6" -> {
+					System.out.println();
+					Utils.assertTrue(isUserLogged, "u need to login in order to create a new library");
+				}
+
+				// insert book review
+				case "7" -> {
+					System.out.println();
+					Utils.assertTrue(isUserLogged, "u need to login in order to insert book review");
+				}
+				
+				// insert recommandation for book 
+				case "8" -> {
+					System.out.println();
+					Utils.assertTrue(isUserLogged, "u need to login in order to insert recommandation for book");
+				}
+
+
+
 			} 
 
 			
