@@ -19,7 +19,9 @@ import java.util.function.Predicate;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.IntStream;
 import java.util.Random;
+import java.util.OptionalDouble;
 import java.util.Scanner;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -30,10 +32,74 @@ import java.util.regex.Matcher;
 	// R apply(T t);
 // }
 
+class Valutazione {
+	private int voto;
+	private String note = new String(new char[256]);
+	private String nome;
+
+	public Valutazione(String nome, int voto, String note) {
+		this.nome = nome;
+		this.voto = voto;
+		this.note = note;
+		if (note.equals("NA")) {this.note = "";}
+	}
+
+	public int getVoto() {
+		return this.voto;
+	}
+	
+	public String getNote() {
+		return this.note;
+	}
+	
+	@Override
+	public String toString() {
+		return String.format("\nnome:\t%s\nvoto:\t%s\nnote:\t%s\n", this.nome, this.voto, this.note);
+	}
+}
+
+class Review {
+	private List<Valutazione> vals;
+	private float votoFinale;
+	private String owner;
+
+	public Review(List<Valutazione> l, String owner) {
+		this.owner      = owner;
+		this.vals       = l;
+		this.votoFinale = (float) vals.stream().mapToInt(v -> v.getVoto()).average().orElse(1.0); 
+	}
+
+	public Review(String csvLine) {
+		String[] infos = csvLine.split(","); 
+		this.owner = infos[1];
+		Valutazione s = new Valutazione("stile",        Integer.parseInt(infos[2]), infos[7]);
+		Valutazione c = new Valutazione("contenuto",    Integer.parseInt(infos[3]), infos[8]);
+		Valutazione g = new Valutazione("gradevolezza", Integer.parseInt(infos[4]), infos[9]);
+		Valutazione o = new Valutazione("originalita",  Integer.parseInt(infos[5]), infos[10]);
+		Valutazione e = new Valutazione("edizione",     Integer.parseInt(infos[6]), infos[11]);
+		this.vals = Arrays.asList(s, c, g, o, e);
+		this.votoFinale = (float) vals.stream().mapToInt(v -> v.getVoto()).average().orElse(1.0); 
+	}
+	
+	@Override
+	public String toString() {
+		List<String> vs = this.vals.stream().map(Valutazione::toString).collect(Collectors.toList());
+		return String.format("---review---\nowner:\t%s\n%s\nfinal:\t%.2f\n---end---\n", this.owner, vs.toString().replace(",", "").replace("[", "").replace("]", ""), this.votoFinale);
+
+	}
+
+	public List<String> toCsv() {
+		List<String> votes =  this.vals.stream().map(Valutazione::getVoto).map(String::valueOf).collect(Collectors.toList());
+		List<String> notes = this.vals.stream().map(Valutazione::getNote).collect(Collectors.toList());
+		return Stream.concat(votes.stream(), notes.stream()).collect(Collectors.toList());
+	}
+}
+
 class Libro {
 	private String title, authors, publisher, category;
 	private short year;
 	private int index;
+	private List<Review> reviews;
 
 	public Libro (String title, String authors, String publisher, String category, short year) {
 		this.title     = title;
@@ -259,30 +325,41 @@ class Utils {
 			    .filter(x -> mode.apply(x).toLowerCase().contains(query.toLowerCase()))
 			    .collect(Collectors.toList());
 	}
-	
+
+      /** Looks for an item in a list.
+        * @param items list of objects where we wanna search.  
+        * @param f predicate where we filter to look for a specific item.
+	* @return a list where there are the items we looked for in the predicate.
+	*/
 	static <T> List<T> cerca(List<T> items, Predicate<T> f) {
 		return items.stream()
 			    .filter(f)
 			    .collect(Collectors.toList());
-
 	}
 
-	static void csvWriter(String filepath, List<String> data, String lineToWrite) {
+      /**
+	* Writes a list of strings to a file in the csv format, recursively.
+	* @param file the filepath where we write the data.
+	* @param data the data we are writing to file.
+	* @param lineToWrite buffer where we store the data written at each recursive call. if we need to append in front
+	* something to the text we can write in it when we call the method, otherwise we leave it empty
+	*/
+	static void csvWriter(String file, List<String> data, String lineToWrite) {
 		switch (data.size()) {
 			case 0  ->  {
 				try {
-					BufferedWriter out = new BufferedWriter(new FileWriter(filepath, true));
+					BufferedWriter out = new BufferedWriter(new FileWriter(file, true));
 					out.write(String.format("%s\n", lineToWrite).substring(1));
 					out.close();
 				} catch (IOException e) {
-					System.err.println(String.format("error writing to file: %s", filepath));
+					System.err.println(String.format("error writing to file: %s", file));
 				}
 
 				return;
 			}
 			default -> {
 				String field = data.remove(0);
-				csvWriter(filepath, data, String.format("%s,%s", lineToWrite, field));
+				csvWriter(file, data, String.format("%s,%s", lineToWrite, field));
 			}
 		}
 	}
@@ -295,6 +372,12 @@ class Utils {
 
 	}
 
+      /**
+	* Writes new user to a file after checking that a user with the same name already exists.
+	* @param file the filepath where we write the new user, "data/UtentiRegistrati.dati".
+	* @param utente the new user we are writing to file.
+	* @param users the already registered users.
+	*/
 	static boolean registrazione(String file, User utente, List<User> users) {
 		List<User> qusers = cerca(users, user -> user.getUserid().equals(utente.getUserid()));
 
@@ -311,14 +394,31 @@ class Utils {
 
 	}
 
+
+      /**
+	* Generates dummy character for debugging purposes.
+	* @return random alphabet character.
+	*/
 	static String generateRandomChar() {
 		return String.valueOf(characters.substring(random.nextInt(characters.length())).charAt(0));
 	}
 
+      /**
+	* Generates dummy integer from interval for debugging purposes.
+	* @param lower lower bound.
+	* @param upper upper bound.
+	* @return integer in the interval.
+	*/
 	static int generateFromInterval(int lower, int upper) {
 		return random.nextInt(upper - lower + 1) + lower;
 	}
 
+      /**
+	* Creates dummy string for debugging purposes.
+	* @param length length of the generated string.
+	* @param out buffer where we pass the string recursively.
+	* @return random generated string.
+	*/
 	static String generateRandomString(int length, String out) {
 		return switch (length) {
 			case 0  -> out;
@@ -326,6 +426,10 @@ class Utils {
 		};
 	}
 
+      /**
+	* Creates dummy user for debugging purposes.
+	* @return dummy user.
+	*/
 	static User generateUser() {
 		String nome          = generateRandomString(generateFromInterval(5, 12), "");
 		String cognome       = generateRandomString(generateFromInterval(5, 12), "");
@@ -347,13 +451,14 @@ class BookRecommender {
 	static final String libriDati       = "data/Libri.dati";
 	static final String userDati        = "data/UtentiRegistrati.dati"; 
 	static final String valutazioniDati = "data/ValutazioniLibri.dati"; 
+	static final String consigliDati    = "data/ConsigliLibri.dati"; 
 	static final String librerieDati    = "data/Librerie.dati"; 
 
 	static final Pattern namePattern    = Pattern.compile("^[a-zA-Z]+$");
 	static final Pattern emailPattern   = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
 	static final Pattern noCommaPattern = Pattern.compile("^[^,]*$");
 
-	static String menu                  = "\n%s\nwhat u wanna do?\n1. look for a book\n2. view book review\n3. register\n4. login\n5. quit\n6. create a new library\n7. insert book review\n8. insert recommandation for book\n9. view your libraries\nur choice: ";
+	static String menu                  = "\n%s\nwhat u wanna do?\n1. look for a book\n2. view book review\n3. register\n4. login\n5. quit\n6. create a new library\n7. insert book review\n8. insert recommandation for book\n9. view your libraries\n0. logout\nur choice: ";
 
 	static final String noLoggedInMenu  = "NOT LOGGED IN";
 	static String prompt;
@@ -362,6 +467,29 @@ class BookRecommender {
 	static String handleInput(String msg, Scanner s) {
 		System.out.print(msg);
 		return s.nextLine();
+	}
+	
+	static int handleIntInput(String msg, Scanner s) {
+		int intg = -1;
+		String ids = handleInput(msg, s);
+
+		try {
+			intg = Integer.parseInt(ids);
+
+		} catch (java.lang.NumberFormatException e) {
+			System.err.println("invalid integer");
+		}
+		return intg;
+	}
+
+	static Valutazione handleValutazione(String name, Scanner s) {
+		int voto; String note;
+		do { voto = handleIntInput(String.format("insert voto for %s", name), s);}
+		while (voto <= 0 || voto > 5);
+		do { note = handleInput(String.format("insert note for %s", name), s);}
+		while (!Utils.assertTrue(noCommaPattern.matcher(note).matches(), "dont use commas in the note"));
+		if (note.equals("")) {note="NA";}
+		return new Valutazione(name.replace("\t", "").replace(":", ""), voto, note);
 	}
 	
 	// static String handleInputCondition(String msg, Scanner s, boolean condition) {
@@ -453,16 +581,16 @@ class BookRecommender {
 
 				// view book review
 				case "2" -> {
-					int id;
-					String ids = handleInput("\nenter book id: ", scanner);
+					int id = handleIntInput("\nenter book id: ", scanner);
+					// String ids = handleInput("\nenter book id: ", scanner);
 
-					try {
-						id = Integer.parseInt(ids);
+					// try {
+						// id = Integer.parseInt(ids);
 
-					} catch (java.lang.NumberFormatException e) {
-						System.err.println("invalid id");
-						break;
-					}
+					// } catch (java.lang.NumberFormatException e) {
+						// System.err.println("invalid id");
+						// break;
+					// }
 
 					try {
 						System.out.println("\n" + books.get(id));
@@ -471,6 +599,12 @@ class BookRecommender {
 						System.err.println("invalid id");
 						break;
 					}
+
+					List<String> rs = Utils.csvReaderFiltered(valutazioniDati, x -> x.split(",")[0].equals(String.valueOf(id)));
+					List<Review> rrs = rs.stream().map(Review::new).collect(Collectors.toList());
+					
+					rrs.forEach(System.out::println);
+						
 
 
 
@@ -547,10 +681,13 @@ class BookRecommender {
 				}
 				
 				// create new library
-				// ensure that each user cannot have two libraries with the same name
+				// ensure that each user cannot have two libraries with the same name -> done
+				// need to wrap this in registraLibreria()
 				case "6" -> {
 					System.out.println();
-					Utils.assertTrue(isUserLogged, "u need to login in order to create a new library");
+					if (!Utils.assertTrue(isUserLogged, "u need to login in order to create a new library")) {
+						break;
+					}
 					String name, id; int idTmp;
 
 					do {name = handleInput("enter library name:\t\t", scanner);}
@@ -595,20 +732,78 @@ class BookRecommender {
 				// insert book review
 				case "7" -> {
 					System.out.println();
-					Utils.assertTrue(isUserLogged, "u need to login in order to insert book review");
+					if (!Utils.assertTrue(isUserLogged, "u need to login in order to insert book review")) {
+						break;
+					}
+
+					int id = handleIntInput("\nenter book id: ", scanner);
+
+					if (id > books.size() || id < 0) {
+						System.err.println("invalid book id");
+						break;
+					}
+
+					Valutazione stile        = handleValutazione("stile:\t\t",      scanner);
+					Valutazione contenuto    = handleValutazione("contenuto:\t",    scanner);
+					Valutazione gradevolezza = handleValutazione("gradevolezza:\t", scanner);
+					Valutazione originalita  = handleValutazione("originalita:\t",  scanner);
+					Valutazione edizione     = handleValutazione("edizione:\t",     scanner);
+					
+					List<Valutazione> v = Arrays.asList(stile, contenuto, gradevolezza, originalita, edizione);
+					Review r = new Review(v, activeUser.getUserid());
+
+					System.out.println(r);
+
+					Utils.csvWriter(valutazioniDati, r.toCsv(), String.format(",%d,%s", id, activeUser.getUserid()));
+
+
 				}
 				
 				// insert recommandation for book 
+				// need to handle better user input and to link this to command number 2
 				case "8" -> {
 					System.out.println();
-					Utils.assertTrue(isUserLogged, "u need to login in order to insert recommandation for book");
+					if (!Utils.assertTrue(isUserLogged, "u need to login in order to insert recommandation for book")) {
+						break;
+					}
+					
+					String id = String.valueOf(handleIntInput("enter book id u want to recommend from:\t", scanner));
+					String i1 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
+					String i2 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
+					String i3 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
+
+					List<String> rec = new ArrayList<>(Arrays.asList(i1, i2, i3));
+
+					
+					
+					System.out.println(rec);
+
+
+					Utils.csvWriter(consigliDati, rec, String.format(",%s,%s", id, activeUser.getUserid()));
+
+
 				}
 
 				// view ur libraries
 				case "9" -> {
 					System.out.println();
-					Utils.assertTrue(isUserLogged, "u need to login in order to view ur libraries");
+					if (!Utils.assertTrue(isUserLogged, "u need to login in order to view ur libraries")) {
+						break;
+					}
 					activeUser.getLibs().forEach(System.out::println);
+				}
+				
+				// logout
+				case "0" -> {
+					System.out.println();
+					if (!Utils.assertTrue(isUserLogged, "u need to login in order to log out")) {
+						break;
+					}
+
+					activeUser = null;
+					isUserLogged = false;
+					prompt = noLoggedInMenu;
+
 				}
 				
 				default -> {
