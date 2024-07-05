@@ -13,6 +13,9 @@ compile:
 
 run:
 	$(J) $(CP) $(BIN) $(ENTRY)
-	
+
+jar:
+	jar cfm BookRecommender.jar manifest.txt -C bin .
+
 docs:
 	javadoc -private -d doc $(SRCS)
