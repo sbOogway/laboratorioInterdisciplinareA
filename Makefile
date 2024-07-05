@@ -14,3 +14,5 @@ compile:
 run:
 	$(J) $(CP) $(BIN) $(ENTRY)
 	
+docs:
+	javadoc -private -d doc $(SRCS)

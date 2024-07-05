@@ -1,7 +1,7 @@
 /**
- * @author Mattia Papaccioli 747053 CO
+ * @author  Mattia Papaccioli 747053 CO
  * @version 1.0
- * @since 1.0
+ * @since   1.0
  */
 
 package it.uninsubria.bookrecommender;
@@ -26,17 +26,31 @@ import java.util.Scanner;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
-// λ lambda
-// @FunctionalInterface
-// interface λ<T, R> {
-	// R apply(T t);
-// }
 
+/**
+ * A class that represents a valutazione for a book.
+ * Five Valutazione put together makes a Review.
+ * @see Review
+ */
 class Valutazione {
+	/**
+	 * The vote for the category.
+	 */
 	private int voto;
+	/**
+	 * The note for the category.
+	 */
 	private String note = new String(new char[256]);
+	/**
+	 * The category name.
+	 */
 	private String nome;
-
+	
+        /**
+	 * @param nome the category being evaluated (stile, contenuto, gradevolezza, originalita, edizione).
+	 * @param voto the voto for the category.
+	 * @param note an eventual note for the category, max 256 characters. "NA" is the not available note.
+	 */
 	public Valutazione(String nome, int voto, String note) {
 		this.nome = nome;
 		this.voto = voto;
@@ -44,31 +58,65 @@ class Valutazione {
 		if (note.equals("NA")) {this.note = "";}
 	}
 
+	/**
+	 * voto field getter.
+	 * @return the category vote.
+	 */
 	public int getVoto() {
 		return this.voto;
 	}
 	
+	/**
+	 * note field getter.
+	 * @return the category note.
+	 */
 	public String getNote() {
 		return this.note;
 	}
 	
+	/**
+	 * returns the valutazione object to string.
+	 * @return Valutazione object to string.
+	 */
 	@Override
 	public String toString() {
 		return String.format("\nnome:\t%s\nvoto:\t%s\nnote:\t%s\n", this.nome, this.voto, this.note);
 	}
 }
 
+/**
+ * A class that represent a review for a book.
+ */
 class Review {
+	/**
+	 * For each category we have a Valutazione.
+	 */
 	private List<Valutazione> vals;
+
+	/**
+	 * The average of the votes for each category.
+	 */
 	private float votoFinale;
+
+	/**
+	 * The userid of the review writer.
+	 */
 	private String owner;
 
+
+	/**
+	 * @param l     a list of Valutazione, one for each category. @see Valutazione
+	 * @param owner the userid of the Review writer.
+	 */
 	public Review(List<Valutazione> l, String owner) {
 		this.owner      = owner;
 		this.vals       = l;
 		this.votoFinale = (float) vals.stream().mapToInt(v -> v.getVoto()).average().orElse(1.0); 
 	}
 
+	/**
+	 * @param csvLine the csvLine read from file. we create one object for each line read in the file.
+	 */
 	public Review(String csvLine) {
 		String[] infos = csvLine.split(","); 
 		this.owner = infos[1];
@@ -81,6 +129,10 @@ class Review {
 		this.votoFinale = (float) vals.stream().mapToInt(v -> v.getVoto()).average().orElse(1.0); 
 	}
 	
+	/**
+	 * returns the Review object to string.
+	 * @return Valutazione object to string.
+	 */
 	@Override
 	public String toString() {
 		List<String> vs = this.vals.stream().map(Valutazione::toString).collect(Collectors.toList());
@@ -88,6 +140,9 @@ class Review {
 
 	}
 
+	/**
+	 * @return the votes and notes for each category concatenated in a list of strings, ready to be written to a file. @see Utils.csvWriter
+	 */
 	public List<String> toCsv() {
 		List<String> votes =  this.vals.stream().map(Valutazione::getVoto).map(String::valueOf).collect(Collectors.toList());
 		List<String> notes = this.vals.stream().map(Valutazione::getNote).collect(Collectors.toList());
@@ -95,12 +150,37 @@ class Review {
 	}
 }
 
+/**
+ * A class that represents a book present in the repository.
+ */
 class Libro {
+	/**
+	 * Self descriptive.
+	 */
 	private String title, authors, publisher, category;
+
+	/**
+	 * Year of the book publication.
+	 */
 	private short year;
+
+	/**
+	 * Index of the book in the csv file. it is handy because it univocally represents a book (primary key).
+	 */
 	private int index;
+
+	/**
+	 * List of Review objects. @see Review
+	 */
 	private List<Review> reviews;
 
+	/**
+	 * @param title     the title of the book.
+	 * @param authors   the authors of the book.
+	 * @param publisher the publisher of the book.
+	 * @param category  the category of the book.
+	 * @param year      the publication year of the book.  
+	 */
 	public Libro (String title, String authors, String publisher, String category, short year) {
 		this.title     = title;
 		this.authors   = authors;
@@ -109,6 +189,10 @@ class Libro {
 		this.year      = year;
 	}
 
+	/**
+	 * In category field we replace double space with single space because of first char of each line in the csv is empty.
+	 * @param csvLine the csvLine read from file. we create one object for each line read in the file.
+	 */
 	public Libro (String csvLine) {
 		String[] infos = csvLine.split(",");
 		this.index       = Integer.parseInt(infos[0]);
@@ -125,30 +209,68 @@ class Libro {
 
 	}
 
+	/**
+	 * returns the Libro object to string.
+	 * @return Libro object to string.
+	 */
 	@Override
 	public String toString() {
 		return String.format("title:\t%s\nauths:\t%s\npubl:\t%s\ncat:\t%s\ndate:\t%d\nid:\t%d\n", this.title, this.authors, this.publisher, this.category, this.year, this.index);
 	}
 
+	/**
+	 * title field getter.
+	 * @return the book title.
+	 */
 	public String getTitle() {
 		return this.title;
 	}
 
+	/**
+	 * author field getter.
+	 * @return the book author.
+	 */
 	public String getAuthor() {
 		return this.authors;
 	}
 
+	/**
+	 * year field getter.
+	 * @return the book publication year.
+	 */
 	public short getYear() {
 		return this.year;
 	}
 
 }
 
+/**
+ * A class that represents a user.
+ */
 class User {
+	/**
+	 * Basic user information. Each field is self descriptive.
+	 */
 	private String nome, cognome, codiceFiscale, email, userid, password;
+
+	/**
+	 * Basic user information put together in a list of string to easily write it in a csv file.
+	 */
 	private List<String> data;
+
+	/**
+	 * List of libraries written by the user. @see Library
+	 */
 	private List<Library> libs;
 
+	/**
+	 * @param nome          the name of the user.
+	 * @param cognome       the surname of the user.
+	 * @param codiceFiscale the codiceFiscale of the user.
+	 * @param email         the email of the user.
+	 * @param userid        the userid of the user.
+	 * @param password      the password of the user.
+	 */
 	public User(String nome, String cognome, String codiceFiscale, String email, String userid, String password) {
 		this.nome          = nome;
 		this.cognome       = cognome;
@@ -159,6 +281,9 @@ class User {
 		this.data          = List.of(nome, cognome, codiceFiscale, email, userid, password);
 	}
 
+	/**
+	 * @param csvLine the csvLine we read from file containing book information.
+	 */
 	public User (String csvLine) {
 		String[] infos = csvLine.split(",");
 		this.nome          = infos[0];
@@ -171,49 +296,96 @@ class User {
 
 	}
 
+	/**
+	 * data field getter.
+	 * @return the user data, ready to be written to a csv file.
+	 */
 	public List<String> getData() {
 		return new ArrayList<>(this.data);
 	}
 
+	/**
+	 * userid field getter.
+	 * @return the user userid.
+	 */
 	public String getUserid() {
 		return this.userid;
 	}
 
+	/**
+	 * password field getter.
+	 * @return the user password.
+	 */
 	public String getPassword() {
 		return this.password;
 	}
 
+	/**
+	 * user libraries getter.
+	 * @return the book publication year.
+	 */
 	public List<Library> getLibs() {
 		return this.libs;
 	}
 
+	/**
+	 * returns the User object to string.
+	 * @return User object to string.
+	 */
 	@Override
 	public String toString() {
 		return String.format("nome:\t\t%s\ncognome:\t%s\ncodiceFiscale:\t%s\nemail:\t\t%s\nuserid:\t\t%s\npassword:\t%s\n", this.nome, this.cognome, this.codiceFiscale, this.email, this.userid, this.password);
 		
 	}
 
+	/**
+	 * library field setter.
+	 * @param l the libraries read from file that belong to the user.
+	 */
 	public void setLibrary(List<Library> l) {
 		this.libs = l;
 	}
 }
 
+/**
+ * A class that represent a library. Each library is a list of books that a user puts together for various purposes.
+ */
 class Library {
+
+	/**
+	 * The name that the user gives to the library.
+	 */
 	private String nome;
+
+	/**
+	 * List of book ids present in the library.
+	 */
 	private List<Integer> books;
 
+	/**
+	 * @param data    the library name.
+	 * @param fromCsv it makes nothing. placeholder to distinguish constructor with only csvLine.
+	 */
 	public Library(String data, boolean fromCsv) {
 		this.nome = data;
 		this.books = new ArrayList<Integer>();
 	}
 
+	/**
+	 * @param csvLine constructs Library object from csvLine parsing each field conventionally. @see valutazioneDati
+	 */
 	public Library(String csvLine) {
 		String[] infos = csvLine.split(",");
 		this.nome = infos[1];
 		String[] bs = Arrays.copyOfRange(infos, 2, infos.length);
 		this.books = Arrays.stream(bs).map(x -> Integer.parseInt(x)).collect(Collectors.toList()); 
 	}
-
+	
+	/**
+	 * if a book is alraedy in the library it will not be added.
+	 * @param bookId the book id to add to the library.
+	 * @return whether the book was added or not.
+	 */
 	boolean addBook(int bookId) {
 		int found = Utils.cerca(this.books, id -> id == bookId).size();
 		return switch (found) {
@@ -222,14 +394,26 @@ class Library {
 		};
 	}
 
+	/**
+	 * books field getter.
+	 * @return the books id in the library.
+	 */
 	public List<Integer> getBooks() {
 		return this.books;
 	}
 	
+	/**
+	 * name field getter.
+	 * @return the name of the library.
+	 */
 	public String getName() {
 		return this.nome;
 	}
 
+	/**
+	 * returns the Library object to string.
+	 * @return Library object to string.
+	 */
 	@Override
 	public String toString() {
 		return String.format("name:\t%s\nids:\t%s\n", this.nome, this.books.toString());
@@ -261,11 +445,31 @@ enum queryMode {
 	abstract String apply(Libro book);
 }
 
+/**
+ * Static class with helper methods using in the main app.
+ */
 class Utils {
+	/**
+	 * Uppercase and lowercase characters, used for generating random strings.
+	 */
 	static final String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+	/**
+	 * Number characters.
+	 */
 	static final String numbers = "0123456789";
+
+	/**
+	 * Random object for generating random stuff.
+	 */
 	static Random random = new Random();
 
+	/**
+	 * Helper function that prints an error message to stderr if a condition is not met.
+	 * @param predicate the condition evaluated.
+	 * @param errMsg    the message printed to stderr in the case the condition is false.
+	 * @return          the value of predicate.
+	 */
 	static boolean assertTrue(boolean predicate, String errMsg) {
 		if (predicate) {
 			return true;
@@ -289,6 +493,13 @@ class Utils {
 		// return result;
 	// }
 
+	/**
+	 * Reads a file in a list of a given class.
+	 * @param filepath the path of the csv file we want to read.
+	 * @param type     the class we want to instatiate. it has to have a constructor with only a string representing the csvLine.
+	 * @param <T>      the type of the class we want to instatiate.
+	 * @return         a mutable list of class type.
+	 */
 	static <T> ArrayList<T> csvReader(String filepath, Class<T> type) {
 		ArrayList<T> result = new ArrayList<>();
 		String line = null;
@@ -307,6 +518,13 @@ class Utils {
 		return result;
 	}
 
+	/**
+	 * Reads a file in a list of strings, excluding the lines that do not respect the predicate.
+	 * @param filepath the path of the csv file we want to read.
+	 * @param f        we want to filter each line based on the predicate.
+	 * @param <T>      generic type for the predicate.
+	 * @return         a list of strings read from csv line filtered base on the predicate.
+	 */
 	static <T> ArrayList<String> csvReaderFiltered(String filepath, Predicate<String> f) {
 		ArrayList<String> fLines = new ArrayList<>();	
 		try (Stream<String> lines = Files.lines(Paths.get(filepath))) {
@@ -319,7 +537,9 @@ class Utils {
 
 	}
 
-	
+	/**
+	 * Looks for a book meeting certain condition.
+	 */
 	static List<Libro> cercaLibro(List<Libro> books, String query, queryMode mode) {
 		return books.stream()
 			    .filter(x -> mode.apply(x).toLowerCase().contains(query.toLowerCase()))
@@ -328,8 +548,9 @@ class Utils {
 
       /** Looks for an item in a list.
         * @param items list of objects where we wanna search.  
-        * @param f predicate where we filter to look for a specific item.
-	* @return a list where there are the items we looked for in the predicate.
+        * @param f     predicate where we filter to look for a specific item.
+	* @param <T>   the type of the class we want to instatiate for the list.
+	* @return      a list where there are the items we looked for in the predicate.
 	*/
 	static <T> List<T> cerca(List<T> items, Predicate<T> f) {
 		return items.stream()
@@ -377,6 +598,7 @@ class Utils {
 	* @param file the filepath where we write the new user, "data/UtentiRegistrati.dati".
 	* @param utente the new user we are writing to file.
 	* @param users the already registered users.
+	* @return whether the registrazione was succesfull or not.
 	*/
 	static boolean registrazione(String file, User utente, List<User> users) {
 		List<User> qusers = cerca(users, user -> user.getUserid().equals(utente.getUserid()));
@@ -389,11 +611,6 @@ class Utils {
 		csvWriter(file, utente.getData(), "");
 		return true;
 	}
-
-	static void generateReview(Libro book) {
-
-	}
-
 
       /**
 	* Generates dummy character for debugging purposes.
@@ -444,44 +661,116 @@ class Utils {
 
 }
 
+
+/**
+ * Main class that handles the execution of the application.
+ */
 class BookRecommender {
+	/**
+	 * Whether an user is currently logged in the app.
+	 */
 	static boolean isUserLogged = false;
+
+	/**
+	 * Currently active user in the app.
+	 */
 	static User activeUser;
 
+	/**
+	 * The csv file path of the books data.
+	 * csvFormat = index,Title,Authors,Category,Publisher,Year 
+	 */
 	static final String libriDati       = "data/Libri.dati";
+
+	/**
+	 * The csv file path of the users data.
+	 * csvFormat = nome,cognome,codiceFiscale,email,userid,password 
+	 */
 	static final String userDati        = "data/UtentiRegistrati.dati"; 
+
+	/**
+	 * The csv file path of the ValutazioniLibri data.
+	 * csvFormat = bookid,user,votoStile,votoContenuto,votoGradevolezza,votoOriginalita,votoEdizione,notaStile,notaContenuto,notaGradevolezza,notaOriginalita,notaEdizione
+	 */
 	static final String valutazioniDati = "data/ValutazioniLibri.dati"; 
+
+	/**
+	 * The csv file path of the books recommandation.
+	 * csvFormat = bookid,userid,id1,id2,id3
+	 */
 	static final String consigliDati    = "data/ConsigliLibri.dati"; 
+
+	/**
+	 * The csv file path of the Lbreria data.
+	 * csvFormat = userid,nomeLibreria,(listOfBookIdsSeparatedByComma) 
+	 */
 	static final String librerieDati    = "data/Librerie.dati"; 
 
+	/**
+	 * Regex that ensures there are only alphabet characters in a string.
+	 */
 	static final Pattern namePattern    = Pattern.compile("^[a-zA-Z]+$");
+
+	/**
+	 * Regex that ensures that a string is a valid email in the format, example@info.com
+	 */
 	static final Pattern emailPattern   = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+
+	/**
+	 * Regex that ensures there is no comma in a string, is used in every input to not break csv reading and writing.
+	 */
 	static final Pattern noCommaPattern = Pattern.compile("^[^,]*$");
 
+	/**
+	 * String containing the main menu of the application.
+	 */
 	static String menu                  = "\n%s\nwhat u wanna do?\n1. look for a book\n2. view book review\n3. register\n4. login\n5. quit\n6. create a new library\n7. insert book review\n8. insert recommandation for book\n9. view your libraries\n0. logout\nur choice: ";
 
+	/**
+	 * String containing the not logged in prompt.
+	 */
 	static final String noLoggedInMenu  = "NOT LOGGED IN";
+
+	/**
+	 * String used to format the menu prompt.
+	 */
 	static String prompt;
 
-
+	/**
+	 * handle string input.
+	 * @param msg the message containing what we wanna receive as input from the user.
+	 * @param s   scanner object containing stdin input.
+	 * @return    the string written by the user. 
+	 */
 	static String handleInput(String msg, Scanner s) {
 		System.out.print(msg);
 		return s.nextLine();
 	}
 	
+	/**
+	 * handle integer input.
+	 * @param msg the message containing what we wanna receive as input from the user.
+	 * @param s   scanner object containing stdin input.
+	 * @return    the integer written by the user.
+	 */
 	static int handleIntInput(String msg, Scanner s) {
 		int intg = -1;
 		String ids = handleInput(msg, s);
 
 		try {
 			intg = Integer.parseInt(ids);
-
 		} catch (java.lang.NumberFormatException e) {
 			System.err.println("invalid integer");
 		}
 		return intg;
 	}
 
+	/**
+	 * handle Valutazione input.
+	 * @param name the name of the valutazione we want to read. @see Valutazione
+	 * @param s    scanner object containing stdin input.
+	 * @return     the Valutazione written by the user .
+	 */
 	static Valutazione handleValutazione(String name, Scanner s) {
 		int voto; String note;
 		do { voto = handleIntInput(String.format("insert voto for %s", name), s);}
@@ -510,10 +799,10 @@ class BookRecommender {
 		// List<Libro> books = Utils.getBooksFromCsv(libriDati);
 		List<Libro>  books = Utils.csvReader(libriDati,    Libro.class);
 		List<User>   users = Utils.csvReader(userDati,     User.class);
-		List<String> libs  = Utils.csvReaderFiltered(librerieDati, xl -> xl.split(",")[0].equals("pollo"));
-		List<Library> lls  = libs.stream().map(Library::new).collect(Collectors.toList());
+		// List<String> libs  = Utils.csvReaderFiltered(librerieDati, xl -> xl.split(",")[0].equals("pollo"));
+		// List<Library> lls  = libs.stream().map(Library::new).collect(Collectors.toList());
 
-		lls.forEach(System.out::println);
+		// lls.forEach(System.out::println);
 		// System.exit(10);
 		// List<Libro> titoli = books.stream()
 			// .map(Libro::getTitle)
@@ -580,6 +869,7 @@ class BookRecommender {
 				}
 
 				// view book review
+				// need to add book recommandations and average of each category and final vote
 				case "2" -> {
 					int id = handleIntInput("\nenter book id: ", scanner);
 					// String ids = handleInput("\nenter book id: ", scanner);
@@ -809,20 +1099,7 @@ class BookRecommender {
 				default -> {
 					System.err.println("\nmode not available");
 				}
-
-
-
-
-
-
 			} 
-
-			
 		}
-
-
-
-
-		
 	}
 }
