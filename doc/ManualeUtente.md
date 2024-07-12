@@ -21,7 +21,7 @@ Versione 1.0
 ### Installazione
 
 #### Requisiti di sistema
-Avere java, git e make installato nel proprio os.
+Avere java, git ed evantualmente make installato nel proprio sistema operativo.
 
 #### Setup ambiente
 Non necessario.
@@ -35,11 +35,40 @@ Spostarsi nella cartella della repo.
 ```
 cd laboratorioInterdisciplinareA
 ```
-Eseguire l applicazione con make
+Compilare il package bookrecommender tramite
 ```
-make run
+javac -d bin src/it/uninsubria/bookrecommender/*.java
+```
+oppure creare il jar per l'applicazione tramite
+```  
+jar cfm BookRecommender.jar manifest.txt -C bin .
+```
+infine eseguire l applicazione con java
+```
+java -cp bin it.uninsubria.bookrecommender.BookRecommender
+```
+oppure con java -jar
+```
+java -jar BookRecommender.jar
+```
+oppure eseguire l applicazione con make
+```
+make compile && make run
 ```
 
 ### Esecuzione ed uso
 
 #### Setup e lancio del programma
+Dopo aver avviato l applicazione, viene mostrato un menu tramite il quale e possibile interagire con la repository di libri, cioe visualizzare i contenuti di essa ed aggiungere recensioni e valutazioni.
+
+#### Uso delle funzionalita
+semplicente seguire cio che il programma richiede ad ogni passaggio. dove viene mostrato un elenco puntato e numerato l input richiesto e il numero della funzione corrispondente
+
+#### Data set di test
+e stato utilizzato il dataset https://www.kaggle.com/datasets/elvinrustam/books-dataset/data per la repo dei libri
+
+
+### Limiti della soluzione sviluppata
+non si possono usare virgole
+
+### Sitografia/Bibliografia

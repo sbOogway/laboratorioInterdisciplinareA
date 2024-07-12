@@ -55,7 +55,7 @@ class Valutazione {
 		this.nome = nome;
 		this.voto = voto;
 		this.note = note;
-		if (note.equals("NA")) {this.note = "";}
+		// if (note.equals("NA")) {this.note = "";}
 	}
 
 	/**
@@ -322,7 +322,7 @@ class User {
 
 	/**
 	 * user libraries getter.
-	 * @return the book publication year.
+	 * @return the user libraries.
 	 */
 	public List<Library> getLibs() {
 		return this.libs;
@@ -420,30 +420,6 @@ class Library {
 	}
 }
 
-enum queryMode {
-	TITOLO {
-		@Override 
-		String apply(Libro book) {
-			return book.getTitle();
-		}
-	},
-
-	AUTORE {
-		@Override
-		String apply(Libro book) {
-			return book.getAuthor();
-		}
-	}, 
-
-	ANNO {
-		@Override 
-		String apply(Libro book) {
-			return String.format("%d", book.getYear());
-		}
-	};
-
-	abstract String apply(Libro book);
-}
 
 /**
  * Static class with helper methods using in the main app.
@@ -477,21 +453,6 @@ class Utils {
 		System.err.println(errMsg); 
 		return false;
 	}
-	// static ArrayList<Libro> getBooksFromCsv(String filepath) {
-		// ArrayList<Libro> result = new ArrayList<Libro>();
-		// String line = null;
-		// try (BufferedReader reader = new BufferedReader(new FileReader(filepath))) {
-			// skip first line cause it has headers
-			// line = reader.readLine();
-			// while ((line = reader.readLine()) != null) {
-				// Libro l = new Libro(line);
-				// result.add(l);
-			// }
-		// } catch (IOException e) {
-			// System.err.println(String.format("error reading file: %s", filepath));
-		// }
-		// return result;
-	// }
 
 	/**
 	 * Reads a file in a list of a given class.
@@ -537,13 +498,9 @@ class Utils {
 
 	}
 
-	/**
-	 * Looks for a book meeting certain condition.
-	 */
-	static List<Libro> cercaLibro(List<Libro> books, String query, queryMode mode) {
-		return books.stream()
-			    .filter(x -> mode.apply(x).toLowerCase().contains(query.toLowerCase()))
-			    .collect(Collectors.toList());
+
+	static <T> List<T> cercaLibro(List<T> items, Predicate<T> f) {
+		return cerca(items, f);
 	}
 
       /** Looks for an item in a list.
@@ -777,7 +734,8 @@ class BookRecommender {
 		while (voto <= 0 || voto > 5);
 		do { note = handleInput(String.format("insert note for %s", name), s);}
 		while (!Utils.assertTrue(noCommaPattern.matcher(note).matches(), "dont use commas in the note"));
-		if (note.equals("")) {note="NA";}
+		System.out.println(note);
+		if (note.equals("") || note.isEmpty()) {note="NA";}
 		return new Valutazione(name.replace("\t", "").replace(":", ""), voto, note);
 	}
 	
@@ -830,6 +788,7 @@ class BookRecommender {
 		Scanner scanner = new Scanner(System.in);
 
 		System.out.println("bookrecommender");
+		// strategy pattern
 		prompt = noLoggedInMenu;
 		
 		while (true) {
@@ -840,26 +799,27 @@ class BookRecommender {
 				case "1" -> {
 					String qMode = handleInput("\nselect query mode\n1. Title -> t\n2. Author -> a\n3. Author and Year -> y\nur choice: ", scanner);
 					String query, year;
-					List<Libro> result;
+					List<Libro> result, yearq;
 
 					switch (qMode)  {
 						case "1", "t" -> {
 							query = handleInput("\nenter the title: ", scanner);
-							result = Utils.cerca(books, book -> book.getTitle().toLowerCase().contains(query.toLowerCase()));
+							result = Utils.cercaLibro(books, book -> book.getTitle().toLowerCase().contains(query.toLowerCase()));
 							// result = Utils.cercaLibro(books, query, queryMode.TITOLO);	
 							result.forEach(System.out::println);
 						}
 
 						case "2", "a" -> {
 							query = handleInput("\nenter the author: ", scanner);
-							result = Utils.cercaLibro(books, query, queryMode.AUTORE);	
+							result = Utils.cercaLibro(books, book -> book.getAuthor().toLowerCase().contains(query.toLowerCase()));	
 							result.forEach(System.out::println);
 
 						}
 						case "3", "y" -> {
 							query = handleInput("\nenter the author: ", scanner);
 							year  = handleInput("\nenter the year: ", scanner);
-							result = Utils.cercaLibro(Utils.cercaLibro(books, year, queryMode.ANNO), query, queryMode.AUTORE);		
+							yearq = Utils.cercaLibro(books, book -> String.valueOf(book.getYear()).equals(year));
+							result = Utils.cercaLibro(yearq, book -> book.getAuthor().toLowerCase().contains(query.toLowerCase()));		
 							result.forEach(System.out::println);
 
 						}
@@ -870,6 +830,7 @@ class BookRecommender {
 
 				// view book review
 				// need to add book recommandations and average of each category and final vote
+				// need to add a prospect for recommandations
 				case "2" -> {
 					int id = handleIntInput("\nenter book id: ", scanner);
 					// String ids = handleInput("\nenter book id: ", scanner);
@@ -985,7 +946,13 @@ class BookRecommender {
 
 					final String fname = name;
 
-					if (!Utils.assertTrue(activeUser.getLibs().stream().filter(ff -> ff.equals(fname)).collect(Collectors.toList()).size() != 0, "u already have a library with this name")) {
+					List <String> test = Utils.csvReaderFiltered(librerieDati, x -> x.split(",")[0].equals(activeUser.getUserid())); //activeUser.getLibs().stream().collect(Collectors.toList());
+
+					System.out.println(test);
+					// test.forEach(System.out::println);
+					// if (!Utils.assertTrue(activeUser.getLibs().stream().map(Library::getName).filter(ff -> ff.equals(fname)).collect(Collectors.toList()).size() == 0, "u already have a library with this name")) {
+
+					if (!Utils.assertTrue(test.stream().map(Library::new).map(Library::getName).filter(ff -> ff.equals(fname)).collect(Collectors.toList()).size() == 0, "u already have a library with this name")) {
 						break;
 					}
 
@@ -1017,6 +984,14 @@ class BookRecommender {
 									.collect(Collectors.toList());
 
 					Utils.csvWriter(librerieDati, lStr, String.format(",%s,%s", activeUser.getUserid(), l.getName()));
+					
+					// wrap this in a function also in 4 switch menu
+					List<Library> llibs  = Utils.csvReaderFiltered(librerieDati, xl -> xl.split(",")[0].equals(activeUser.getUserid()))
+						.stream()
+						.map(Library::new)
+						.collect(Collectors.toList());
+
+					activeUser.setLibrary(llibs);
 				}
 
 				// insert book review
