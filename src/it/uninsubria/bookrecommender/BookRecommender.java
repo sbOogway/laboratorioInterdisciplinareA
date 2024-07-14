@@ -56,7 +56,6 @@ class Valutazione {
 		this.nome = nome;
 		this.voto = voto;
 		this.note = note;
-		// if (note.equals("NA")) {this.note = "";}
 	}
 
 	/**
@@ -150,18 +149,42 @@ class Review {
 		return Stream.concat(votes.stream(), notes.stream()).collect(Collectors.toList());
 	}
 
+	/**
+	 * stile vote getter.
+	 * @return the stile vote.
+	 */
 	public int getVotoStile() {
 		return this.vals.get(0).getVoto();
 	}
+
+	/**
+	 * contenuto vote getter.
+	 * @return the contenuto vote.
+	 */
 	public int getVotoContenuto() {
 		return this.vals.get(1).getVoto();
 	}
+
+	/**
+	 * gradevolezza vote getter.
+	 * @return the gradevolezza vote.
+	 */
 	public int getVotoGradevolezza() {
 		return this.vals.get(2).getVoto();
 	}
+
+	/**
+	 * originalita vote getter.
+	 * @return the originalita vote.
+	 */
 	public int getVotoOriginalita() {
 		return this.vals.get(3).getVoto();
 	}
+
+	/**
+	 * edizione vote getter.
+	 * @return the edizione vote.
+	 */
 	public int getVotoEdizione() {
 		return this.vals.get(4).getVoto();
 	}
@@ -515,11 +538,6 @@ class Utils {
 
 	}
 
-
-	static <T> List<T> cercaLibro(List<T> items, Predicate<T> f) {
-		return cerca(items, f);
-	}
-
       /** Looks for an item in a list.
         * @param items list of objects where we wanna search.  
         * @param f     predicate where we filter to look for a specific item.
@@ -557,33 +575,6 @@ class Utils {
 				csvWriter(file, data, String.format("%s,%s", lineToWrite, field));
 			}
 		}
-	}
-
-	static void visualizzaLibro(Libro book) {
-				
-	}
-
-	static void inserisciValutazioneLibro() {
-
-	}
-
-      /**
-	* Writes new user to a file after checking that a user with the same name already exists.
-	* @param file the filepath where we write the new user, "data/UtentiRegistrati.dati".
-	* @param utente the new user we are writing to file.
-	* @param users the already registered users.
-	* @return whether the registrazione was succesfull or not.
-	*/
-	static boolean registrazione(String file, User utente, List<User> users) {
-		List<User> qusers = cerca(users, user -> user.getUserid().equals(utente.getUserid()));
-
-		if (qusers.size() != 0) {
-			System.err.println(String.format("\nuserid %s not available", utente.getUserid()));
-			return false;
-		}
-
-		csvWriter(file, utente.getData(), "");
-		return true;
 	}
 
       /**
@@ -755,7 +746,13 @@ class BookRecommender {
 		if (note.equals("") || note.isEmpty()) {note="NA";}
 		return new Valutazione(name.replace("\t", "").replace(":", ""), voto, note);
 	}
-
+	
+	/**
+	 * formats a string containing a consiglio for a book in order to pretty print it in the terminal.
+	 * @param rawConsiglio the string containing a consiglio not yet formatted
+	 * @param b            list of books, needed to get the book title from the id
+	 * @return             the consiglio ready to be displayed prettily in the terminal
+	 */
 	static String formatConsiglio(String rawConsiglio, List<Libro> b) {
 		String[] infos = rawConsiglio.split(",");
 		String c1, c2, c3;
@@ -771,57 +768,268 @@ class BookRecommender {
 		}
 		return String.format("---suggestions---\nuser:\t%s\nc1:\t%s\nc2:\t%s\nc3:\t%s\n---end---", infos[1], c1, c2, c3);
 	}
-	
-	// static String handleInputCondition(String msg, Scanner s, boolean condition) {
-		// String in;
-		// do {
-			// System.out.print(msg);
-			// in = s.nextLine();
-		// } while (condition);
-		// return in;
-	// }
+
+      /** Looks for a book in the repo.
+        * @param b   the list of books in the repo.  
+        * @param f   predicate where we filter to look for a specific book and specific query mode.
+	* @param <T> the type of the class we want to instatiate for the list. need to write like this in order to call cerca function. the type of b should be Libro.
+	* @return    a list where there are the books we looked for, according to the predicate.
+	*/
+	static <T> List<T> cercaLibro(List<T> b, Predicate<T> f) {
+		return Utils.cerca(b, f);
+	}
 
 	/**
+	 * handle user input in order to see prettily all the valutations and suggestions for a given book, passed by id in input. no need to login.
+	 * @param scanner scanner object to handle user input
+	 * @param books   list of books(Libro) where we search
+	 */
+	static void visualizzaLibro(Scanner scanner, List<Libro> books) {
+		int id = handleIntInput("\nenter book id: ", scanner);
+
+		try {
+			System.out.println("\n" + books.get(id));
+
+		} catch (java.lang.IndexOutOfBoundsException e) {
+			System.err.println("invalid id");
+			return;
+		}
+
+		List<String> rs = Utils.csvReaderFiltered(valutazioniDati, x -> x.split(",")[0].equals(String.valueOf(id)));
+		List<Review> rrs = rs.stream().map(Review::new).collect(Collectors.toList());
+
+		List<String> cs = Utils.csvReaderFiltered(consigliDati, x -> x.split(",")[0].equals(String.valueOf(id)));
+
+		
+		boolean rflag, cflag;
+		rflag = cflag = false;
+		if (rrs.size() != 0) {
+			rrs.forEach(System.out::println);
+			rflag = true;	
+		} else {
+			System.err.println("reviews not available for this book");
+		}
+
+		if (cs.size() != 0) {
+			cs.forEach(c -> {
+				System.out.println(formatConsiglio(c, books));
+			});
+			cflag = true;	
+		} else {
+			System.err.println("\nsuggestions not available for this book");
+		}
+
+		if (rflag) {
+
+			float ms, mc, mg, mo, me; 
+			ms= mc= mg= mo= me= 0;
+			for (Review r: rrs) {
+				ms += r.getVotoStile();
+				mc += r.getVotoContenuto();
+				mg += r.getVotoGradevolezza();
+				mo += r.getVotoOriginalita();
+				me += r.getVotoEdizione();
+			}
+
+			ms /= rrs.size();
+			mc /= rrs.size();
+			mg /= rrs.size();
+			mo /= rrs.size();
+			me /= rrs.size();
+
+			System.out.println("\n---recap---");
+			System.out.println("Numero di valutazioni:\t" + rrs.size());
+			System.out.println(String.format("Media stile:\t\t%.2f",      ms));
+			System.out.println(String.format("Media contenuto:\t%.2f",    mc));
+			System.out.println(String.format("Media gradevolezza:\t%.2f", mg));
+			System.out.println(String.format("Media originalita:\t%.2f",  mo));
+			System.out.println(String.format("Media edizione:\t\t%.2f",   me));
+			System.out.println(String.format("Media finale:\t\t%.2f",     (ms+mc+mg+mo+me)/5));
+
+		}
+
+		if (cflag) {
+			List<String> processedList = cs.stream()
+				.map(c -> Arrays.asList(c.split(","))) 
+				.map(list -> list.subList(2, list.size())) 
+				.flatMap(List::stream) 
+				.collect(Collectors.toList());
+
+			Map<String, Long> counts = processedList.stream()
+				.collect(Collectors.groupingBy(e -> e, Collectors.counting()));
+
+			counts.forEach((key, count) -> System.out.println("\n" + books.get(Integer.parseInt(key)).getTitle() + "-> " + count));
+
+
+
+		}
+
+		System.out.println("---end---");
+
+
+	}
+
+      /**
+	* Writes new user to a file after checking that a user with the same name already exists.
+	* @param file the filepath where we write the new user, "data/UtentiRegistrati.dati".
+	* @param utente the new user we are writing to file.
+	* @param users the already registered users.
+	* @return whether the registrazione was succesfull or not.
+	*/
+	static boolean registrazione(String file, User utente, List<User> users) {
+		List<User> qusers = Utils.cerca(users, user -> user.getUserid().equals(utente.getUserid()));
+
+		if (qusers.size() != 0) {
+			System.err.println(String.format("\nuserid %s not available", utente.getUserid()));
+			return false;
+		}
+
+		Utils.csvWriter(file, utente.getData(), "");
+		return true;
+	}
+
+	/**
+	 * handle user input in order to write a library for a user. need to login.
+	 * @param scanner scanner object to handle user input
+	 * @param books   list of books(Libro) where we search
+	 */
+	static void registraLibreria(Scanner scanner, List<Libro> books) {
+		System.out.println();
+		if (!Utils.assertTrue(isUserLogged, "u need to login in order to create a new library")) {
+			return;
+		}
+		String name, id; int idTmp;
+
+		do {name = handleInput("enter library name:\t\t", scanner);}
+		while (!Utils.assertTrue(noCommaPattern.matcher(name).matches(), "dont use commas"));
+
+		final String fname = name;
+
+		List <String> test = Utils.csvReaderFiltered(librerieDati, x -> x.split(",")[0].equals(activeUser.getUserid()));
+
+		System.out.println(test);
+		if (!Utils.assertTrue(test.stream().map(Library::new).map(Library::getName).filter(ff -> ff.equals(fname)).collect(Collectors.toList()).size() == 0, "u already have a library with this name")) {
+			return;
+		}
+
+		Library l = new Library(name, false);	
+
+		while (true) {
+			id = handleInput("enter book id or type end:\t", scanner);
+			if (id.equals("end")) {
+				break;
+			}
+			try {
+				idTmp = Integer.parseInt(id);
+				
+			} catch (java.lang.NumberFormatException e) {
+				System.err.println("invalid book id");
+				continue;
+			}
+
+			if (idTmp > books.size() || idTmp < 0) {
+				System.err.println("invalid book id");
+				continue;
+			}
+
+			l.addBook(idTmp);
+		}
+
+		List<String> lStr = l.getBooks().stream()
+						.map(idi -> String.valueOf(idi))
+						.collect(Collectors.toList());
+
+		Utils.csvWriter(librerieDati, lStr, String.format(",%s,%s", activeUser.getUserid(), l.getName()));
+		
+		List<Library> llibs  = Utils.csvReaderFiltered(librerieDati, xl -> xl.split(",")[0].equals(activeUser.getUserid()))
+			.stream()
+			.map(Library::new)
+			.collect(Collectors.toList());
+
+		activeUser.setLibrary(llibs);
+
+
+	}
+
+	/**
+	 * handle user input in order to write a valutation for a given book. need to login.
+	 * @param scanner scanner object to handle user input
+	 * @param books   list of books(Libro) where we search
+	 */
+	static void inserisciValutazioneLibro(Scanner scanner, List<Libro> books) {
+		System.out.println();
+		if (!Utils.assertTrue(isUserLogged, "u need to login in order to insert book review")) {
+			return;
+		}
+
+		int id = handleIntInput("\nenter book id: ", scanner);
+
+		if (id > books.size() || id < 0) {
+			System.err.println("invalid book id");
+			return;
+		}
+
+		Valutazione stile        = handleValutazione("stile:\t\t",      scanner);
+		Valutazione contenuto    = handleValutazione("contenuto:\t",    scanner);
+		Valutazione gradevolezza = handleValutazione("gradevolezza:\t", scanner);
+		Valutazione originalita  = handleValutazione("originalita:\t",  scanner);
+		Valutazione edizione     = handleValutazione("edizione:\t",     scanner);
+		
+		List<Valutazione> v = Arrays.asList(stile, contenuto, gradevolezza, originalita, edizione);
+		Review r = new Review(v, activeUser.getUserid());
+
+		System.out.println(r);
+
+		Utils.csvWriter(valutazioniDati, r.toCsv(), String.format(",%d,%s", id, activeUser.getUserid()));
+
+
+	}
+
+	/**
+	 * handle user input in order to write a suggestion for a given book. need to login.
+	 * @param scanner scanner object to handle user input
+	 */
+	static void inserisciSuggerimentoLibro(Scanner scanner) {
+		System.out.println();
+		if (!Utils.assertTrue(isUserLogged, "u need to login in order to insert recommandation for book")) {
+			return;
+		}
+		
+		String id = String.valueOf(handleIntInput("enter book id u want to recommend from:\t", scanner));
+		if (id.equals("-1")) {
+			return;
+		}
+		String i1 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
+		if (i1.equals("-1")) {
+			return;
+		}
+		String i2 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
+		String i3 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
+
+		List<String> rec = new ArrayList<>(Arrays.asList(i1, i2, i3));
+
+		
+		
+		System.out.println(rec);
+
+
+		Utils.csvWriter(consigliDati, rec, String.format(",%s,%s", id, activeUser.getUserid()));
+
+
+	}
+
+	
+	/**
 	 * entry point to the application.
-	 *
-	 * @param args need to add user and pass auth from cli
+	 * @param args not used in application
 	 */
 	public static void main(String[] args) {
-		// List<Libro> books = Utils.getBooksFromCsv(libriDati);
 		List<Libro>  books = Utils.csvReader(libriDati,    Libro.class);
 		List<User>   users = Utils.csvReader(userDati,     User.class);
-		// List<String> libs  = Utils.csvReaderFiltered(librerieDati, xl -> xl.split(",")[0].equals("pollo"));
-		// List<Library> lls  = libs.stream().map(Library::new).collect(Collectors.toList());
-
-		// lls.forEach(System.out::println);
-		// System.exit(10);
-		// List<Libro> titoli = books.stream()
-			// .map(Libro::getTitle)
-			// .filter(str -> str.getTitle().contains("Quick"))
-			// .collect(Collectors.toList()); 
-		// titoli.forEach(System.out::println);
-		// System.out.println(Utils.search(titoli, "Quick"));
-		// List<Libro> titoli = Utils.cercaLibro(books, "quick", queryMode.TITOLO);
-		// titoli.forEach(System.out::println);
-		// List<Libro> autori = Utils.cercaLibro(Utils.cercaLibro(books, "Shakespeare", queryMode.AUTORE), "1962", queryMode.ANNO);
-		// autori.forEach(System.out::println);
-		// List<Libro> anno = Utils.cercaLibro(books, "1999", queryMode.ANNO);
-		// anno.forEach(System.out::println);
-		//
-		// List<String> fruits = List.of("Apple", "Banana", "Cherry");
-		// List<String> mfruits = new ArrayList<>(fruits);
-		// Utils.csvWriter("data/test.csv", mfruits, "");
-		
-		// System.out.println(Utils.generateRandomChar());
-		
-		// System.out.println(Utils.generateRandomString(10, ""));
-		
-		// Utils.registrazione(userDati, Utils.generateUser(), users);
 
 		Scanner scanner = new Scanner(System.in);
 
 		System.out.println("bookrecommender");
-		// strategy pattern
 		prompt = noLoggedInMenu;
 		
 		while (true) {
@@ -837,22 +1045,21 @@ class BookRecommender {
 					switch (qMode)  {
 						case "1", "t" -> {
 							query = handleInput("\nenter the title: ", scanner);
-							result = Utils.cercaLibro(books, book -> book.getTitle().toLowerCase().contains(query.toLowerCase()));
-							// result = Utils.cercaLibro(books, query, queryMode.TITOLO);	
+							result = cercaLibro(books, book -> book.getTitle().toLowerCase().contains(query.toLowerCase()));
 							result.forEach(System.out::println);
 						}
 
 						case "2", "a" -> {
 							query = handleInput("\nenter the author: ", scanner);
-							result = Utils.cercaLibro(books, book -> book.getAuthor().toLowerCase().contains(query.toLowerCase()));	
+							result = cercaLibro(books, book -> book.getAuthor().toLowerCase().contains(query.toLowerCase()));	
 							result.forEach(System.out::println);
 
 						}
 						case "3", "y" -> {
 							query = handleInput("\nenter the author: ", scanner);
 							year  = handleInput("\nenter the year: ", scanner);
-							yearq = Utils.cercaLibro(books, book -> String.valueOf(book.getYear()).equals(year));
-							result = Utils.cercaLibro(yearq, book -> book.getAuthor().toLowerCase().contains(query.toLowerCase()));		
+							yearq = cercaLibro(books, book -> String.valueOf(book.getYear()).equals(year));
+							result = cercaLibro(yearq, book -> book.getAuthor().toLowerCase().contains(query.toLowerCase()));		
 							result.forEach(System.out::println);
 
 						}
@@ -862,96 +1069,8 @@ class BookRecommender {
 				}
 
 				// view book review
-				// need to add book recommandations and average of each category and final vote
-				// need to add a prospect for recommandations
 				case "2" -> {
-					int id = handleIntInput("\nenter book id: ", scanner);
-					// String ids = handleInput("\nenter book id: ", scanner);
-
-					// try {
-						// id = Integer.parseInt(ids);
-
-					// } catch (java.lang.NumberFormatException e) {
-						// System.err.println("invalid id");
-						// break;
-					// }
-
-					try {
-						System.out.println("\n" + books.get(id));
-
-					} catch (java.lang.IndexOutOfBoundsException e) {
-						System.err.println("invalid id");
-						break;
-					}
-
-					List<String> rs = Utils.csvReaderFiltered(valutazioniDati, x -> x.split(",")[0].equals(String.valueOf(id)));
-					List<Review> rrs = rs.stream().map(Review::new).collect(Collectors.toList());
-
-					List<String> cs = Utils.csvReaderFiltered(consigliDati, x -> x.split(",")[0].equals(String.valueOf(id)));
-
-					
-					boolean rflag, cflag;
-					rflag = cflag = false;
-					if (rrs.size() != 0) {
-						rrs.forEach(System.out::println);
-						rflag = true;	
-					} else {
-						System.err.println("reviews not available for this book");
-					}
-
-					if (cs.size() != 0) {
-						cs.forEach(c -> {
-							System.out.println(formatConsiglio(c, books));
-						});
-						cflag = true;	
-					} else {
-						System.err.println("\nsuggestions not available for this book");
-					}
-
-					if (rflag) {
-
-						float ms, mc, mg, mo, me; 
-						ms= mc= mg= mo= me= 0;
-						for (Review r: rrs) {
-							ms += r.getVotoStile();
-							mc += r.getVotoContenuto();
-							mg += r.getVotoGradevolezza();
-							mo += r.getVotoOriginalita();
-							me += r.getVotoEdizione();
-						}
-
-						ms /= rrs.size();
-						mc /= rrs.size();
-						mg /= rrs.size();
-						mo /= rrs.size();
-						me /= rrs.size();
-
-						System.out.println("\n---recap---");
-						System.out.println("Numero di valutazioni:\t" + rrs.size());
-						System.out.println(String.format("Media stile:\t\t%.2f",      ms));
-						System.out.println(String.format("Media contenuto:\t%.2f",    mc));
-						System.out.println(String.format("Media gradevolezza:\t%.2f", mg));
-						System.out.println(String.format("Media originalita:\t%.2f",  mo));
-						System.out.println(String.format("Media edizione:\t\t%.2f",   me));
-						System.out.println(String.format("Media finale:\t\t%.2f",     (ms+mc+mg+mo+me)/5));
-						System.out.println("---end---");
-					}
-
-					if (cflag) {
-						// i need to group by and the show count like in sql
-						List<String> rrr = cs.stream()
-							.map(c -> Arrays.asList(c.split(",")))
-							// .map(e -> e.remove(0))
-							.flatMap(List::stream)
-							.collect(Collectors.toList());
-						rrr.forEach(System.out::println);
-
-					}
-						
-
-
-
-
+					visualizzaLibro(scanner, books);
 				}
 
 				// register
@@ -978,8 +1097,8 @@ class BookRecommender {
 					while (!Utils.assertTrue(noCommaPattern.matcher(password).matches(), "dont use commas in your password"));
 
 					User user = new User(name, surname, codiceFiscale, email, userid, password);
-					boolean succ = Utils.registrazione(userDati, user, users);
-					// System.out.println(succ);
+					boolean succ = registrazione(userDati, user, users);
+
 					if (!succ) {
 						break;
 					}
@@ -989,7 +1108,6 @@ class BookRecommender {
 				}
 				
 				// login
-				// make sure userid is unique -> read users in a list like the books
 				case "4" -> {
 					List<User> found; String password;
 					System.out.println();
@@ -1024,128 +1142,19 @@ class BookRecommender {
 				}
 				
 				// create new library
-				// ensure that each user cannot have two libraries with the same name -> done
-				// need to wrap this in registraLibreria()
 				case "6" -> {
-					System.out.println();
-					if (!Utils.assertTrue(isUserLogged, "u need to login in order to create a new library")) {
-						break;
-					}
-					String name, id; int idTmp;
-
-					do {name = handleInput("enter library name:\t\t", scanner);}
-					while (!Utils.assertTrue(noCommaPattern.matcher(name).matches(), "dont use commas"));
-
-					final String fname = name;
-
-					List <String> test = Utils.csvReaderFiltered(librerieDati, x -> x.split(",")[0].equals(activeUser.getUserid())); //activeUser.getLibs().stream().collect(Collectors.toList());
-
-					System.out.println(test);
-					// test.forEach(System.out::println);
-					// if (!Utils.assertTrue(activeUser.getLibs().stream().map(Library::getName).filter(ff -> ff.equals(fname)).collect(Collectors.toList()).size() == 0, "u already have a library with this name")) {
-
-					if (!Utils.assertTrue(test.stream().map(Library::new).map(Library::getName).filter(ff -> ff.equals(fname)).collect(Collectors.toList()).size() == 0, "u already have a library with this name")) {
-						break;
-					}
-
-					Library l = new Library(name, false);	
-
-					while (true) {
-						id = handleInput("enter book id or type end:\t", scanner);
-						if (id.equals("end")) {
-							break;
-						}
-						try {
-							idTmp = Integer.parseInt(id);
-							
-						} catch (java.lang.NumberFormatException e) {
-							System.err.println("invalid book id");
-							continue;
-						}
-
-						if (idTmp > books.size() || idTmp < 0) {
-							System.err.println("invalid book id");
-							continue;
-						}
-
-						l.addBook(idTmp);
-					}
-
-					List<String> lStr = l.getBooks().stream()
-						                        .map(idi -> String.valueOf(idi))
-									.collect(Collectors.toList());
-
-					Utils.csvWriter(librerieDati, lStr, String.format(",%s,%s", activeUser.getUserid(), l.getName()));
-					
-					// wrap this in a function also in 4 switch menu
-					List<Library> llibs  = Utils.csvReaderFiltered(librerieDati, xl -> xl.split(",")[0].equals(activeUser.getUserid()))
-						.stream()
-						.map(Library::new)
-						.collect(Collectors.toList());
-
-					activeUser.setLibrary(llibs);
+					registraLibreria(scanner, books);
 				}
 
 				// insert book review
 				case "7" -> {
-					System.out.println();
-					if (!Utils.assertTrue(isUserLogged, "u need to login in order to insert book review")) {
-						break;
-					}
-
-					int id = handleIntInput("\nenter book id: ", scanner);
-
-					if (id > books.size() || id < 0) {
-						System.err.println("invalid book id");
-						break;
-					}
-
-					Valutazione stile        = handleValutazione("stile:\t\t",      scanner);
-					Valutazione contenuto    = handleValutazione("contenuto:\t",    scanner);
-					Valutazione gradevolezza = handleValutazione("gradevolezza:\t", scanner);
-					Valutazione originalita  = handleValutazione("originalita:\t",  scanner);
-					Valutazione edizione     = handleValutazione("edizione:\t",     scanner);
-					
-					List<Valutazione> v = Arrays.asList(stile, contenuto, gradevolezza, originalita, edizione);
-					Review r = new Review(v, activeUser.getUserid());
-
-					System.out.println(r);
-
-					Utils.csvWriter(valutazioniDati, r.toCsv(), String.format(",%d,%s", id, activeUser.getUserid()));
-
+					inserisciValutazioneLibro(scanner, books);
 
 				}
 				
 				// insert recommandation for book 
-				// need to handle better user input and to link this to command number 2
 				case "8" -> {
-					System.out.println();
-					if (!Utils.assertTrue(isUserLogged, "u need to login in order to insert recommandation for book")) {
-						break;
-					}
-					
-					String id = String.valueOf(handleIntInput("enter book id u want to recommend from:\t", scanner));
-					// System.out.println(id);
-					if (id.equals("-1")) {
-						break;
-					}
-					String i1 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
-					if (i1.equals("-1")) {
-						break;
-					}
-					String i2 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
-					String i3 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
-
-					List<String> rec = new ArrayList<>(Arrays.asList(i1, i2, i3));
-
-					
-					
-					System.out.println(rec);
-
-
-					Utils.csvWriter(consigliDati, rec, String.format(",%s,%s", id, activeUser.getUserid()));
-
-
+					inserisciSuggerimentoLibro(scanner);
 				}
 
 				// view ur libraries
