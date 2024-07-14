@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.function.Predicate;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -147,6 +148,22 @@ class Review {
 		List<String> votes =  this.vals.stream().map(Valutazione::getVoto).map(String::valueOf).collect(Collectors.toList());
 		List<String> notes = this.vals.stream().map(Valutazione::getNote).collect(Collectors.toList());
 		return Stream.concat(votes.stream(), notes.stream()).collect(Collectors.toList());
+	}
+
+	public int getVotoStile() {
+		return this.vals.get(0).getVoto();
+	}
+	public int getVotoContenuto() {
+		return this.vals.get(1).getVoto();
+	}
+	public int getVotoGradevolezza() {
+		return this.vals.get(2).getVoto();
+	}
+	public int getVotoOriginalita() {
+		return this.vals.get(3).getVoto();
+	}
+	public int getVotoEdizione() {
+		return this.vals.get(4).getVoto();
 	}
 }
 
@@ -738,6 +755,22 @@ class BookRecommender {
 		if (note.equals("") || note.isEmpty()) {note="NA";}
 		return new Valutazione(name.replace("\t", "").replace(":", ""), voto, note);
 	}
+
+	static String formatConsiglio(String rawConsiglio, List<Libro> b) {
+		String[] infos = rawConsiglio.split(",");
+		String c1, c2, c3;
+		c1 = c2 = c3 = "";
+		if (!infos[2].equals("-1")) {
+			c1 = b.get(Integer.parseInt(infos[2])).getTitle();
+		}
+		if (!infos[3].equals("-1")) {
+			c2 = b.get(Integer.parseInt(infos[3])).getTitle();
+		}
+		if (!infos[4].equals("-1")) {
+			c3 = b.get(Integer.parseInt(infos[4])).getTitle();
+		}
+		return String.format("---suggestions---\nuser:\t%s\nc1:\t%s\nc2:\t%s\nc3:\t%s\n---end---", infos[1], c1, c2, c3);
+	}
 	
 	// static String handleInputCondition(String msg, Scanner s, boolean condition) {
 		// String in;
@@ -853,8 +886,67 @@ class BookRecommender {
 
 					List<String> rs = Utils.csvReaderFiltered(valutazioniDati, x -> x.split(",")[0].equals(String.valueOf(id)));
 					List<Review> rrs = rs.stream().map(Review::new).collect(Collectors.toList());
+
+					List<String> cs = Utils.csvReaderFiltered(consigliDati, x -> x.split(",")[0].equals(String.valueOf(id)));
+
 					
-					rrs.forEach(System.out::println);
+					boolean rflag, cflag;
+					rflag = cflag = false;
+					if (rrs.size() != 0) {
+						rrs.forEach(System.out::println);
+						rflag = true;	
+					} else {
+						System.err.println("reviews not available for this book");
+					}
+
+					if (cs.size() != 0) {
+						cs.forEach(c -> {
+							System.out.println(formatConsiglio(c, books));
+						});
+						cflag = true;	
+					} else {
+						System.err.println("\nsuggestions not available for this book");
+					}
+
+					if (rflag) {
+
+						float ms, mc, mg, mo, me; 
+						ms= mc= mg= mo= me= 0;
+						for (Review r: rrs) {
+							ms += r.getVotoStile();
+							mc += r.getVotoContenuto();
+							mg += r.getVotoGradevolezza();
+							mo += r.getVotoOriginalita();
+							me += r.getVotoEdizione();
+						}
+
+						ms /= rrs.size();
+						mc /= rrs.size();
+						mg /= rrs.size();
+						mo /= rrs.size();
+						me /= rrs.size();
+
+						System.out.println("\n---recap---");
+						System.out.println("Numero di valutazioni:\t" + rrs.size());
+						System.out.println(String.format("Media stile:\t\t%.2f",      ms));
+						System.out.println(String.format("Media contenuto:\t%.2f",    mc));
+						System.out.println(String.format("Media gradevolezza:\t%.2f", mg));
+						System.out.println(String.format("Media originalita:\t%.2f",  mo));
+						System.out.println(String.format("Media edizione:\t\t%.2f",   me));
+						System.out.println(String.format("Media finale:\t\t%.2f",     (ms+mc+mg+mo+me)/5));
+						System.out.println("---end---");
+					}
+
+					if (cflag) {
+						// i need to group by and the show count like in sql
+						List<String> rrr = cs.stream()
+							.map(c -> Arrays.asList(c.split(",")))
+							// .map(e -> e.remove(0))
+							.flatMap(List::stream)
+							.collect(Collectors.toList());
+						rrr.forEach(System.out::println);
+
+					}
 						
 
 
@@ -1033,7 +1125,14 @@ class BookRecommender {
 					}
 					
 					String id = String.valueOf(handleIntInput("enter book id u want to recommend from:\t", scanner));
+					// System.out.println(id);
+					if (id.equals("-1")) {
+						break;
+					}
 					String i1 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
+					if (i1.equals("-1")) {
+						break;
+					}
 					String i2 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
 					String i3 = String.valueOf(handleIntInput("enter book id u want to recommend to:\t", scanner));
 
